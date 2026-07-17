@@ -59,8 +59,9 @@ def main() -> None:
 
     cap = cv2.VideoCapture(source)
     if not cap.isOpened():
-        print(f"[ERROR] Cannot open video source: {source}")
-        sys.exit(1)
+        print(f"[WARN] Cannot open video source '{source}' — using synthetic test frames.")
+        print("       Connect a webcam or pass a video file path with --source to use real input.")
+        cap = None  # Will use blank_frame() fallback below
 
     print("=" * 60)
     print("  StampedeZero — VisionTracker Demo")
@@ -81,10 +82,14 @@ def main() -> None:
     fps_display = 0.0
 
     while True:
-        ret, raw_frame = cap.read()
-        if not ret:
-            print("[INFO] End of stream or capture error — exiting.")
-            break
+        if cap is not None and cap.isOpened():
+            ret, raw_frame = cap.read()
+            if not ret:
+                print("[INFO] End of stream or capture error — exiting.")
+                break
+        else:
+            # Synthetic fallback: random noise frame for pipeline testing
+            raw_frame = (np.random.rand(480, 640, 3) * 80).astype(np.uint8)
 
         # ── Run the tracker ───────────────────────────────────────────────
         payload = tracker.process_frame(raw_frame)

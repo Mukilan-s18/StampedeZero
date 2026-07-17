@@ -42,8 +42,8 @@ from typing import Dict, Any, Optional
 
 from dotenv import load_dotenv
 
-from data_buffer import CrowdDataBuffer
-import prediction_engine as predictor
+from .data_buffer import CrowdDataBuffer
+from . import prediction_engine as predictor
 
 # ─── Logging Setup ───────────────────────────────────────────────────────────
 

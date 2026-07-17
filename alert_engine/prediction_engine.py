@@ -173,8 +173,8 @@ def analyze(
             - threshold:    Echo of the configured threshold
             - message:      Human-readable summary for UI/SMS
     """
-    # Guard: need at least 10 data points for a meaningful regression
-    if len(timestamps) < 10:
+    # Guard: need at least 5 data points for a meaningful regression
+    if len(timestamps) < 5:
         return {
             "status": SAFE,
             "inflow_rate": 0.0,
