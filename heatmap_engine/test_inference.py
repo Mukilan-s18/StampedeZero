@@ -33,9 +33,9 @@ def main():
     count = result['estimated_count']
     heatmap = result['heatmap_frame']
     
-    print(f"\n====================================")
+    print("\n====================================")
     print(f" Estimated Crowd Count: {count}")
-    print(f"====================================\n")
+    print("====================================\n")
     
     output_path = "output_heatmap.jpg"
     cv2.imwrite(output_path, heatmap)

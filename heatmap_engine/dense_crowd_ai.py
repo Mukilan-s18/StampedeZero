@@ -1,7 +1,13 @@
 import cv2
 import torch
 import numpy as np
+import sys
+import os
 from torchvision import transforms
+
+# Add the current directory to sys.path so we can import model.py 
+# regardless of where this script is called from
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from model import CSRNet
 
 class DensityEstimator:
