@@ -403,18 +403,8 @@ class VisionTracker:
             # Bounding box
             cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
 
-            # ID label (above box)
-            label = f"ID:{track_id}"
-            (lw, lh), _ = cv2.getTextSize(
-                label, cv2.FONT_HERSHEY_SIMPLEX, cfg.FONT_SCALE, cfg.FONT_THICKNESS
-            )
-            cv2.rectangle(frame, (x1, y1 - lh - 8), (x1 + lw + 4, y1), box_color, -1)
-            cv2.putText(
-                frame, label,
-                (x1 + 2, y1 - 4),
-                cv2.FONT_HERSHEY_SIMPLEX, cfg.FONT_SCALE,
-                (0, 0, 0), cfg.FONT_THICKNESS,
-            )
+            # ID label removed per user request
+
 
             # Centroid dot
             cv2.circle(frame, (cx, cy), cfg.CENTROID_RADIUS, cfg.CENTROID_COLOR, -1)
@@ -451,8 +441,7 @@ class VisionTracker:
         ]
         for tid in stale:
             del self._track_states[tid]
-            # Decrement entered count and increment exited count
-            self.in_count = max(0, self.in_count - 1)
+            # Increment exited count only
             self.out_count += 1
             logger.info("Person Exited screen (Track ID: %d)", tid)
 
