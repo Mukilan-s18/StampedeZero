@@ -109,7 +109,7 @@ def ai_processing_loop():
         if mode == "LIVE (YOLOv8)":
             result = yolo_engine.process_frame(frame, frame_id=frame_count)
             render_img = result["annotated_frame"]
-            current_count = result["in_count"] - result["out_count"]
+            current_count = result["current_on_screen"]
             total_in = result["in_count"]
             total_out = result["out_count"]
             current_on_screen = result["current_on_screen"]
