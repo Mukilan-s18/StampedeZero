@@ -156,7 +156,7 @@ class VisionTracker:
 
     # ─── Public API ───────────────────────────────────────────────────────────
 
-    def process_frame(self, frame: np.ndarray) -> dict:
+    def process_frame(self, frame: np.ndarray, frame_id: Optional[int] = None) -> dict:
         """
         Full pipeline: resize → track → extract → crossing logic → annotate.
 
