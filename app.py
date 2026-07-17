@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import datetime
 
 # ── Path setup — allow importing sub-packages from project root ───────────────
 _ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -183,6 +184,36 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     stop_btn = st.button("⏹  Stop Feed", use_container_width=True, type="primary")
+
+    st.markdown("---")
+    emergency_override = st.checkbox("🚨 Emergency Override", value=False, help="Force critical alert (demo purposes)")
+    
+    st.markdown("---")
+    with st.expander("Venue Command Center", expanded=True):
+        st.markdown("**Map Status**")
+        blueprint_path = "blueprint.png"
+        if os.path.exists(blueprint_path):
+            blueprint = cv2.imread(blueprint_path)
+            if blueprint is not None:
+                # Resize if needed
+                blueprint = cv2.resize(blueprint, (500, 350))
+                # Static green dots
+                cv2.circle(blueprint, (120, 100), 8, (0, 255, 0), -1)
+                cv2.circle(blueprint, (380, 80), 8, (0, 255, 0), -1)
+                cv2.circle(blueprint, (150, 280), 8, (0, 255, 0), -1)
+                # Pulsing red dot for live camera
+                radius = int(8 + 3 * np.sin(time.time() * 5))
+                cv2.circle(blueprint, (350, 260), radius, (0, 0, 255), -1)
+                
+                # Add text labels
+                cv2.putText(blueprint, "CAM-1", (110, 85), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(blueprint, "CAM-2", (370, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(blueprint, "CAM-3", (140, 265), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(blueprint, "CAM-4 (LIVE)", (320, 245), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                
+                st.image(cv2.cvtColor(blueprint, cv2.COLOR_BGR2RGB), use_container_width=True)
+        else:
+            st.warning("Blueprint image not found")
 
     st.markdown("---")
     st.markdown(
@@ -395,6 +426,11 @@ for _ in range(FRAMES_PER_RUN):
             "inflow_rate": 0.0, "risk_score": 0.0, "sms_sent": False,
         }
 
+    if emergency_override:
+        threat["status"] = "CRITICAL_CAPACITY"
+        threat["sms_sent"] = True
+        threat["risk_score"] = 1.0
+
     status   = threat.get("status",      "SAFE")
     eta      = threat.get("eta_seconds", None)
     rate     = threat.get("inflow_rate", 0.0)
@@ -406,9 +442,16 @@ for _ in range(FRAMES_PER_RUN):
 
     # 6. Alert log
     if threat.get("sms_sent"):
+        from alert_engine.report_generator import generate_incident_report
+        # Generate the PDF Incident Report
+        heatmap_snapshot_path = "heatmap_snapshot.jpg"
+        cv2.imwrite(heatmap_snapshot_path, render_img)
+        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        pdf_path = generate_incident_report(ts, rate, current_count, heatmap_snapshot_path)
+        
         alert_log.append({
             "Time":  f"{elapsed:.0f}s",
-            "Alert": f"📱 SMS · {status} · count={current_count}",
+            "Alert": f"📱 SMS · {status} · count={current_count} (PDF Generated: {pdf_path})",
         })
         if len(alert_log) > 8:
             alert_log.pop(0)
