@@ -451,6 +451,8 @@ class VisionTracker:
         ]
         for tid in stale:
             del self._track_states[tid]
+            # Decrement entered count and increment exited count
+            self.in_count = max(0, self.in_count - 1)
             self.out_count += 1
             logger.info("Person Exited screen (Track ID: %d)", tid)
 
