@@ -1,20 +1,3 @@
-"""
-heatmap_engine/dense_crowd_ai.py — StampedeZero Density Estimator (CSRNet)
-===========================================================================
-OWNER: Engineer 2 (Heatmap / Density Lead)
-
-CONTRACT: exports class DensityEstimator with:
-    - __init__(self, weight_path: str)            ← canonical kwarg name
-    - __init__(self, weights_path: str)           ← compat alias (Engineer 4)
-    - process_frame(self, frame: np.ndarray) -> dict
-
-Return dict keys:
-    heatmap_frame   np.ndarray  BGR frame with jet heatmap overlay
-    estimated_count int         total estimated crowd count
-    density_map     np.ndarray  raw float32 density map (H x W)
-    peak_density    float       max value in density map
-"""
-
 import logging
 import os
 import sys
