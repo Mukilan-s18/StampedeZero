@@ -36,6 +36,8 @@ class GlobalState:
         self.frame_skip: int = cfg.SKIP_FRAMES
         self.capacity: int = cfg.VENUE_CAPACITY
         self.emergency_override: bool = False
+        self.pdf_generated_path: Optional[str] = None
+        self.pdf_session_active: bool = False
 
 STATE = GlobalState()
 
@@ -49,6 +51,16 @@ predictor = ThreatPredictor(
     warning_horizon=cfg.WARNING_HORIZON_SECONDS,
     velocity_floor=cfg.VELOCITY_FLOOR,
 )
+
+def play_buzzer():
+    import platform
+    if platform.system() == "Windows":
+        try:
+            import winsound
+            winsound.Beep(2200, 150)
+            winsound.Beep(1800, 150)
+        except Exception:
+            pass
 
 # ─── Background AI Loop ─────────────────────────────────────────────────────
 def ai_processing_loop():
@@ -135,19 +147,33 @@ def ai_processing_loop():
                     analytics["risk_score"] = 1.0
                     analytics["message"] = "🚨 EMERGENCY OVERRIDE TRIGGERED"
                 
-                if analytics.get("sms_sent"):
-                    from alert_engine.report_generator import generate_incident_report
-                    import datetime
-                    heatmap_snapshot_path = "heatmap_snapshot.jpg"
-                    cv2.imwrite(heatmap_snapshot_path, render_img)
-                    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    rate = analytics.get("inflow_rate", 0.0)
-                    try:
-                        pdf_path = generate_incident_report(ts, rate, current_count, heatmap_snapshot_path)
-                        analytics["pdf_generated"] = pdf_path
-                    except Exception as e:
-                        logger.error(f"Failed to generate PDF: {e}")
-
+                status = analytics.get("status")
+                if status == "CRITICAL_CAPACITY":
+                    # Play buzzer sound
+                    import threading
+                    threading.Thread(target=play_buzzer, daemon=True).start()
+                    
+                    # Generate PDF once per session
+                    if not STATE.pdf_session_active:
+                        from alert_engine.report_generator import generate_incident_report
+                        import datetime
+                        heatmap_snapshot_path = "heatmap_snapshot.jpg"
+                        cv2.imwrite(heatmap_snapshot_path, render_img)
+                        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        rate = analytics.get("inflow_rate", 0.0)
+                        try:
+                            pdf_path = generate_incident_report(ts, rate, current_count, heatmap_snapshot_path)
+                            STATE.pdf_generated_path = pdf_path
+                            STATE.pdf_session_active = True
+                            logger.info(f"Incident report generated successfully: {pdf_path}")
+                        except Exception as e:
+                            logger.error(f"Failed to generate PDF: {e}")
+                else:
+                    # Reset PDF session when SAFE
+                    STATE.pdf_session_active = False
+                    STATE.pdf_generated_path = None
+                
+                analytics["pdf_generated"] = STATE.pdf_generated_path
                 STATE.latest_analytics = analytics
                 
         # Encode frame to JPEG
