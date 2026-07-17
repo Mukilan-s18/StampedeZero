@@ -38,7 +38,15 @@ from typing import Optional, Union
 
 import cv2
 import numpy as np
-from ultralytics import YOLO
+try:
+    from ultralytics import YOLO
+    _YOLO_AVAILABLE = True
+except ImportError:
+    YOLO = None
+    _YOLO_AVAILABLE = False
+    logging.getLogger("VisionTracker").warning(
+        "ultralytics not installed — VisionTracker running in DEMO/MOCK mode."
+    )
 
 import config as cfg
 
@@ -98,8 +106,13 @@ class VisionTracker:
         confidence: float = cfg.CONFIDENCE_THRESHOLD,
     ) -> None:
 
-        logger.info("Loading YOLO model: %s", model_path)
-        self._model = YOLO(model_path)
+        self._demo_mode = not _YOLO_AVAILABLE
+        if _YOLO_AVAILABLE:
+            logger.info("Loading YOLO model: %s", model_path)
+            self._model = YOLO(model_path)
+        else:
+            logger.warning("DEMO MODE: skipping YOLO model load — returning mock frames.")
+            self._model = None
         self._tracker_cfg = tracker_cfg
         self._confidence = confidence
 
@@ -159,6 +172,32 @@ class VisionTracker:
                 net_flow           (int)        total_in − total_out
                 track_ids_on_screen(list[int])  active track IDs this frame
         """
+        # ── DEMO MODE: return mock data when ultralytics is not installed ──
+        if self._demo_mode:
+            frame = cv2.resize(frame, (cfg.FRAME_W, cfg.FRAME_H))
+            mock_count = int(30 + 20 * np.sin(time.time() * 0.4) + np.random.randint(-3, 4))
+            mock_count = max(0, mock_count)
+            out = frame.copy()
+            h, w = out.shape[:2]
+            line_y = int(h * (self._line_y_fraction or 0.55))
+            cv2.line(out, (0, line_y), (w, line_y), (0, 255, 255), 2)
+            cv2.putText(out, f"DEMO MODE | Count: {mock_count}", (10, line_y - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            cv2.putText(out, "YOLO ENGINE [MOCK - install ultralytics for real]",
+                        (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 120, 255), 2)
+            return {
+                "annotated_frame": out,
+                "current_on_screen": mock_count,
+                "total_in": self.in_count,
+                "total_out": self.out_count,
+                "net_flow": self.in_count - self.out_count,
+                "track_ids_on_screen": [],
+                "in_count": self.in_count,
+                "out_count": self.out_count,
+                "inflow_rate": 0.0,
+                "outflow_rate": 0.0,
+            }
+
         # ── Step 1: Resize input to safe resolution ────────────────────────
         frame = cv2.resize(frame, (cfg.FRAME_W, cfg.FRAME_H))
         h, w = frame.shape[:2]
