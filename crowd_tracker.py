@@ -5,16 +5,26 @@ Branch: mukil  |  Engineer 1 (Vision & Tracking Lead)
 PRIMARY DELIVERABLE — import this file from Engineer 4's Streamlit app:
 
     from crowd_tracker import VisionTracker
-    import config
 
-    tracker = VisionTracker(line_y_fraction=config.LINE_Y_FRACTION)
+    # New API (preferred)
+    tracker = VisionTracker(line_y_fraction=0.55)
 
-    # Inside the Streamlit frame loop:
+    # Legacy API (Engineer 4 contract — also works)
+    tracker = VisionTracker(line_y=300)
+
     payload = tracker.process_frame(raw_numpy_frame)
-    st.image(payload["annotated_frame"])
-    st.metric("Total In",  payload["total_in"])
-    st.metric("Total Out", payload["total_out"])
-    st.metric("Net Flow",  payload["net_flow"])
+
+Payload keys (superset of Engineer 4's contract):
+    annotated_frame   np.ndarray  BGR image with overlays
+    current_on_screen int         people visible right now
+    total_in          int         cumulative inflow (preferred)
+    total_out         int         cumulative outflow (preferred)
+    net_flow          int         total_in - total_out
+    track_ids_on_screen list[int] active track IDs
+    in_count          int         alias for total_in  (Engineer 4 compat)
+    out_count         int         alias for total_out (Engineer 4 compat)
+    inflow_rate       float       people entering per second
+    outflow_rate      float       people leaving per second
 
 The class is intentionally self-contained. No Streamlit, no Twilio, no database.
 """
@@ -24,7 +34,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, Union
 
 import cv2
 import numpy as np
@@ -61,9 +71,15 @@ class VisionTracker:
     Uses YOLOv8 + ByteTrack to assign stable integer IDs to each person,
     then uses a virtual horizontal line to count inflow vs outflow.
 
+    Backward-compatible with Engineer 4's contract:
+        VisionTracker(line_y=300)  — legacy pixel-based API
+        VisionTracker(line_y_fraction=0.55)  — preferred fraction-based API
+
     Args:
         line_y_fraction: Vertical position of the counting line as a fraction
             of frame height (default from config.LINE_Y_FRACTION).
+        line_y: Absolute pixel position of counting line (Engineer 4 compat).
+            If provided, overrides line_y_fraction.
         model_path: Path / URL to YOLO weights file.
         tracker_cfg: YOLO tracker config name (bytetrack.yaml or botsort.yaml).
         skip_frames: Run YOLO inference every Nth frame to reduce CPU load.
@@ -74,6 +90,7 @@ class VisionTracker:
     def __init__(
         self,
         line_y_fraction: float = cfg.LINE_Y_FRACTION,
+        line_y: Optional[int] = None,          # Engineer 4 legacy compat
         model_path: str = cfg.MODEL_PATH,
         tracker_cfg: str = cfg.TRACKER_CFG,
         skip_frames: int = cfg.SKIP_FRAMES,
@@ -86,9 +103,17 @@ class VisionTracker:
         self._tracker_cfg = tracker_cfg
         self._confidence = confidence
 
-        # Virtual line
-        self._line_y_fraction = line_y_fraction
-        self._line_y: int = 300  # Will be recalculated on first frame
+        # Virtual line — support both pixel (legacy) and fraction (preferred) APIs
+        if line_y is not None:
+            # Legacy: Engineer 4 passes line_y=300; store as-is and set fraction=None
+            self._line_y_fixed: Optional[int] = line_y
+            self._line_y_fraction = None
+            self._line_y: int = line_y
+            logger.info("VisionTracker: using fixed line_y=%d px (legacy mode)", line_y)
+        else:
+            self._line_y_fixed = None
+            self._line_y_fraction = line_y_fraction
+            self._line_y = 300  # Recalculated on first frame
 
         # Frame bookkeeping
         self._frame_count: int = 0
@@ -99,13 +124,19 @@ class VisionTracker:
         self._track_states: dict[int, TrackState] = {}
         self._last_results = None  # Cache for frame-skip reuse
 
-        # Counters
+        # Counters (Engineer 4 contract uses in_count / out_count directly)
         self.in_count: int = 0
         self.out_count: int = 0
 
+        # Rate tracking for Engineer 4's inflow_rate / outflow_rate keys
+        self._prev_on_screen: int = 0
+        self._last_rate_ts: float = time.time()
+        self._inflow_rate: float = 0.0
+        self._outflow_rate: float = 0.0
+
         logger.info(
             "VisionTracker ready | line_y=%.0f%% | skip=%d | stale_age=%d",
-            line_y_fraction * 100,
+            (line_y_fraction or 0) * 100,
             skip_frames,
             max_stale_age,
         )
@@ -132,8 +163,9 @@ class VisionTracker:
         frame = cv2.resize(frame, (cfg.FRAME_W, cfg.FRAME_H))
         h, w = frame.shape[:2]
 
-        # Recalculate line_y based on actual frame height
-        self._line_y = int(h * self._line_y_fraction)
+        # Recalculate line_y based on actual frame height (fraction mode only)
+        if self._line_y_fraction is not None:
+            self._line_y = int(h * self._line_y_fraction)
 
         # ── Step 2: Run YOLO (or reuse cached result on skipped frames) ───
         self._frame_count += 1
@@ -176,14 +208,30 @@ class VisionTracker:
         # ── Step 6: Draw annotations ──────────────────────────────────────
         annotated = self._draw_annotations(frame.copy(), detections)
 
-        # ── Step 7: Return clean payload ─────────────────────────────────
+        # ── Step 7: Compute per-second rates (Engineer 4 compat) ─────────
+        now = time.time()
+        dt  = max(now - self._last_rate_ts, 1e-6)
+        curr_on = len(active_ids)
+        diff = curr_on - self._prev_on_screen
+        self._inflow_rate  = max(0.0, float(diff) / dt)
+        self._outflow_rate = max(0.0, float(-diff) / dt)
+        self._prev_on_screen = curr_on
+        self._last_rate_ts   = now
+
+        # ── Step 8: Return clean payload ──────────────────────────────────
         return {
+            # ── Preferred (new) keys ──────────────────────────────────────
             "annotated_frame":     annotated,
-            "current_on_screen":   len(active_ids),
+            "current_on_screen":   curr_on,
             "total_in":            self.in_count,
             "total_out":           self.out_count,
             "net_flow":            self.in_count - self.out_count,
             "track_ids_on_screen": active_ids,
+            # ── Engineer 4 backward-compat keys ──────────────────────────
+            "in_count":            self.in_count,
+            "out_count":           self.out_count,
+            "inflow_rate":         self._inflow_rate,
+            "outflow_rate":        self._outflow_rate,
         }
 
     def reset(self) -> None:
@@ -196,6 +244,9 @@ class VisionTracker:
         self._track_states.clear()
         self._frame_count = 0
         self._last_results = None
+        self._prev_on_screen = 0
+        self._inflow_rate = 0.0
+        self._outflow_rate = 0.0
         logger.info("VisionTracker state reset.")
 
     # ─── Private Helpers ──────────────────────────────────────────────────────
