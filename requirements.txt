@@ -1,3 +1,11 @@
+# Vision Tracker (Engineer 1 - mukil)
 ultralytics>=8.2.0
 opencv-python>=4.9.0
 numpy>=1.26.0
+
+# Streamlit Dashboard (Engineer 4 - fadil)
+streamlit>=1.35.0
+plotly>=5.22.0
+pandas>=2.2.0
+Pillow>=10.3.0
+python-dotenv>=1.0.0
