@@ -99,7 +99,7 @@ class DensityEstimator:
 
         try:
             self.model = CSRNet(load_weights=True)
-            checkpoint = torch.load(resolved_path, map_location=self.device)
+            checkpoint = torch.load(resolved_path, map_location=self.device, weights_only=False)
             if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
                 self.model.load_state_dict(checkpoint["state_dict"])
             else:

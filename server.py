@@ -130,9 +130,16 @@ def ai_processing_loop():
             # Run every N frames for CSRNet if we want, or every frame
             if frame_count % max(1, STATE.frame_skip) == 0:
                 result = cnn_engine.process_frame(frame)
-                render_img = result["heatmap_frame"]
-                current_count = result["estimated_count"]
-                current_on_screen = result["estimated_count"]
+                STATE.last_csr_result = result
+            else:
+                result = getattr(STATE, "last_csr_result", None)
+                if result is None:
+                    result = cnn_engine.process_frame(frame)
+                    STATE.last_csr_result = result
+            
+            render_img = result["heatmap_frame"]
+            current_count = result["estimated_count"]
+            current_on_screen = result["estimated_count"]
                 
         # Risk Predictor
         if frame_count % 5 == 0 or mode == "STRESS TEST (CSRNet)":
