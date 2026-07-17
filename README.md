@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="frontend/public/vite.svg" alt="StampedeZero Logo" width="120" />
   <h1>🚨 StampedeZero</h1>
   <p>A Proactive AI Defense System for Predictive Crowd Safety & Disaster Management.</p>
 
