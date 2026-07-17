@@ -194,35 +194,65 @@ function App() {
           </div>
         </div>
 
-        <div className="metric-card glass-panel" style={{ background: "rgba(255,165,0,0.03)", borderLeft: '3px solid #ff8c42', marginBottom: '16px' }}>
-          <span className="title" style={{ color: '#ff8c42' }}>Visible on Camera</span>
-          <span className="value">{analytics.current_on_screen || 0} <span style={{fontSize:'1rem', color:'var(--text-secondary)'}}>ppl</span></span>
+        {/* Set Capacity Limit Input Box / Preset Tabs */}
+        <div className="metric-card glass-panel" style={{ background: "rgba(255,255,255,0.02)", marginBottom: '16px', padding: '16px' }}>
+          <span className="title" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Set Allowed Screen Limit</span>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            <input 
+              type="number" 
+              min="1" 
+              max="5000" 
+              value={config.capacity}
+              onChange={(e) => updateConfig({ capacity: parseInt(e.target.value) || 10 })}
+              style={{
+                flex: 1,
+                background: 'rgba(0,0,0,0.3)',
+                border: '1px solid var(--panel-border)',
+                borderRadius: '8px',
+                color: 'white',
+                padding: '8px 12px',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+            />
+            <button 
+              className={`preset-btn ${config.capacity === 10 ? 'active' : ''}`}
+              onClick={() => updateConfig({ capacity: 10 })}
+              style={{ background: config.capacity === 10 ? 'var(--accent-color)' : 'rgba(255,255,255,0.05)', border: '1px solid var(--panel-border)', color: 'white', borderRadius: '8px', padding: '0 12px', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s' }}
+            >
+              10
+            </button>
+            <button 
+              className={`preset-btn ${config.capacity === 50 ? 'active' : ''}`}
+              onClick={() => updateConfig({ capacity: 50 })}
+              style={{ background: config.capacity === 50 ? 'var(--accent-color)' : 'rgba(255,255,255,0.05)', border: '1px solid var(--panel-border)', color: 'white', borderRadius: '8px', padding: '0 12px', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s' }}
+            >
+              50
+            </button>
+            <button 
+              className={`preset-btn ${config.capacity === 100 ? 'active' : ''}`}
+              onClick={() => updateConfig({ capacity: 100 })}
+              style={{ background: config.capacity === 100 ? 'var(--accent-color)' : 'rgba(255,255,255,0.05)', border: '1px solid var(--panel-border)', color: 'white', borderRadius: '8px', padding: '0 12px', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.2s' }}
+            >
+              100
+            </button>
+          </div>
         </div>
 
+        {/* Counters */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
           <div className="metric-card glass-panel" style={{ flex: 1, background: "rgba(46, 204, 113, 0.05)", borderLeft: '3px solid #2ecc71', margin: 0, padding: '12px' }}>
-            <span className="title" style={{ fontSize: '0.8rem', color: '#2ecc71' }}>Total Entered</span>
+            <span className="title" style={{ fontSize: '0.8rem', color: '#2ecc71' }}>Entered</span>
             <span className="value" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{analytics.total_in || 0}</span>
           </div>
           <div className="metric-card glass-panel" style={{ flex: 1, background: "rgba(231, 76, 60, 0.05)", borderLeft: '3px solid #e74c3c', margin: 0, padding: '12px' }}>
-            <span className="title" style={{ fontSize: '0.8rem', color: '#e74c3c' }}>Total Exited</span>
+            <span className="title" style={{ fontSize: '0.8rem', color: '#e74c3c' }}>Exited</span>
             <span className="value" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{analytics.total_out || 0}</span>
           </div>
         </div>
 
-        <div className="metric-card glass-panel" style={{ background: "rgba(0,0,0,0.2)" }}>
-          <span className="title">Inflow Velocity</span>
-          <span className="value">{analytics.inflow_rate.toFixed(1)} <span style={{fontSize:'1rem', color:'var(--text-secondary)'}}>ppl/sec</span></span>
-        </div>
-
-        <div className="metric-card glass-panel" style={{ background: "rgba(0,0,0,0.2)" }}>
-          <span className="title">ETA to Critical</span>
-          <span className="value" style={{ color: analytics.eta_seconds && analytics.eta_seconds < 60 ? 'var(--critical-color)' : 'inherit' }}>
-            {analytics.eta_seconds !== null ? `${Math.round(analytics.eta_seconds)}s` : 'Safe'}
-          </span>
-        </div>
-
-        <div style={{ height: 200, marginTop: 24 }}>
+        {/* History Chart */}
+        <div style={{ height: 200, marginTop: 12 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={history}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
@@ -248,27 +278,6 @@ function App() {
             📄 <strong>PDF Generated:</strong> {analytics.pdf_generated}
           </div>
         )}
-
-        <hr style={{ borderColor: 'rgba(255,255,255,0.1)', margin: '24px 0' }} />
-        
-        <h3>Venue Command Center</h3>
-        <div className="venue-map glass-panel" style={{ position: 'relative', marginTop: '16px', padding: 0, overflow: 'hidden' }}>
-          <img src="/src/assets/blueprint.png" alt="Venue Blueprint" style={{ width: '100%', height: 'auto', display: 'block', opacity: 0.8 }} />
-          
-          {/* Static cameras */}
-          <div className="camera-dot" style={{ left: '24%', top: '28%', background: '#0f0' }}></div>
-          <span className="camera-label" style={{ left: '22%', top: '22%', color: '#0f0' }}>CAM-1</span>
-          
-          <div className="camera-dot" style={{ left: '76%', top: '22%', background: '#0f0' }}></div>
-          <span className="camera-label" style={{ left: '74%', top: '16%', color: '#0f0' }}>CAM-2</span>
-          
-          <div className="camera-dot" style={{ left: '30%', top: '80%', background: '#0f0' }}></div>
-          <span className="camera-label" style={{ left: '28%', top: '74%', color: '#0f0' }}>CAM-3</span>
-          
-          {/* Live camera (pulsing) */}
-          <div className="camera-dot pulsing-red" style={{ left: '70%', top: '74%', background: 'red' }}></div>
-          <span className="camera-label" style={{ left: '64%', top: '68%', color: 'red' }}>CAM-4 (LIVE)</span>
-        </div>
 
       </div>
     </div>
