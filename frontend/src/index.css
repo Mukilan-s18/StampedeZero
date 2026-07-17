@@ -200,3 +200,39 @@ select {
 select:focus {
   border-color: var(--accent-color);
 }
+
+/* Venue Map & Camera Dots */
+.camera-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(0,0,0,0.8);
+}
+
+.camera-label {
+  position: absolute;
+  font-size: 0.75rem;
+  font-weight: bold;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 0 4px #000;
+}
+
+.pulsing-red {
+  animation: pulse-red 1.5s infinite;
+}
+
+@keyframes pulse-red {
+  0% { transform: translate(-50%, -50%) scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+  70% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+  100% { transform: translate(-50%, -50%) scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+}
+
+/* Override Button */
+.btn-override:hover {
+  transform: scale(1.02);
+}
+.btn-override.active {
+  animation: pulse-red 1s infinite;
+}

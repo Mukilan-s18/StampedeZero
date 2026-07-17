@@ -35,6 +35,7 @@ class GlobalState:
         self.line_y_fraction: float = cfg.LINE_Y_FRACTION
         self.frame_skip: int = cfg.SKIP_FRAMES
         self.capacity: int = cfg.VENUE_CAPACITY
+        self.emergency_override: bool = False
 
 STATE = GlobalState()
 
@@ -99,10 +100,28 @@ def ai_processing_loop():
                 current_count = result["estimated_count"]
                 
         # Risk Predictor
-        # Update predictor only periodically or every frame? app.py does it every frame
         if frame_count % 5 == 0 or mode == "STRESS TEST (CSRNet)":
             analytics = predictor.update_and_predict(current_count)
             with STATE.lock:
+                if STATE.emergency_override:
+                    analytics["status"] = "CRITICAL_CAPACITY"
+                    analytics["sms_sent"] = True
+                    analytics["risk_score"] = 1.0
+                    analytics["message"] = "🚨 EMERGENCY OVERRIDE TRIGGERED"
+                
+                if analytics.get("sms_sent"):
+                    from alert_engine.report_generator import generate_incident_report
+                    import datetime
+                    heatmap_snapshot_path = "heatmap_snapshot.jpg"
+                    cv2.imwrite(heatmap_snapshot_path, render_img)
+                    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    rate = analytics.get("inflow_rate", 0.0)
+                    try:
+                        pdf_path = generate_incident_report(ts, rate, current_count, heatmap_snapshot_path)
+                        analytics["pdf_generated"] = pdf_path
+                    except Exception as e:
+                        logger.error(f"Failed to generate PDF: {e}")
+
                 STATE.latest_analytics = analytics
                 
         # Encode frame to JPEG
@@ -174,6 +193,7 @@ class ConfigUpdate(BaseModel):
     line_y_fraction: Optional[float] = None
     frame_skip: Optional[int] = None
     capacity: Optional[int] = None
+    emergency_override: Optional[bool] = None
 
 @app.post("/config")
 def update_config(cfg_update: ConfigUpdate):
@@ -188,12 +208,15 @@ def update_config(cfg_update: ConfigUpdate):
             STATE.frame_skip = cfg_update.frame_skip
         if cfg_update.capacity is not None:
             STATE.capacity = cfg_update.capacity
+        if cfg_update.emergency_override is not None:
+            STATE.emergency_override = cfg_update.emergency_override
             
     return {"status": "success", "current_config": {
         "mode": STATE.mode,
         "line_y_fraction": STATE.line_y_fraction,
         "frame_skip": STATE.frame_skip,
-        "capacity": STATE.capacity
+        "capacity": STATE.capacity,
+        "emergency_override": STATE.emergency_override
     }}
 
 @app.get("/config")
@@ -203,7 +226,8 @@ def get_config():
             "mode": STATE.mode,
             "line_y_fraction": STATE.line_y_fraction,
             "frame_skip": STATE.frame_skip,
-            "capacity": STATE.capacity
+            "capacity": STATE.capacity,
+            "emergency_override": STATE.emergency_override
         }
 
 if __name__ == "__main__":

@@ -19,7 +19,8 @@ function App() {
     mode: "LIVE (YOLOv8)",
     line_y_fraction: 0.5,
     frame_skip: 2,
-    capacity: 100
+    capacity: 100,
+    emergency_override: false
   });
 
   const [history, setHistory] = useState([]);
@@ -125,6 +126,26 @@ function App() {
             onChange={(e) => updateConfig({ frame_skip: parseInt(e.target.value) })}
           />
         </div>
+
+        <hr style={{ borderColor: 'rgba(255,255,255,0.1)', margin: '24px 0' }} />
+
+        <div className="control-group">
+          <label style={{ color: config.emergency_override ? 'var(--critical-color)' : 'inherit' }}>
+            🚨 Emergency Override
+          </label>
+          <button 
+            className={`btn-override ${config.emergency_override ? 'active' : ''}`}
+            onClick={() => updateConfig({ emergency_override: !config.emergency_override })}
+            style={{
+              width: '100%', padding: '12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+              fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px',
+              backgroundColor: config.emergency_override ? 'var(--critical-color)' : 'rgba(255,255,255,0.1)',
+              color: '#fff', transition: 'all 0.3s ease'
+            }}
+          >
+            {config.emergency_override ? 'OVERRIDE ACTIVE' : 'FORCE CRITICAL'}
+          </button>
+        </div>
       </div>
 
       {/* MAIN: Video Feed */}
@@ -190,6 +211,34 @@ function App() {
             </LineChart>
           </ResponsiveContainer>
         </div>
+
+        {analytics.pdf_generated && (
+          <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(50, 200, 100, 0.2)', borderLeft: '4px solid #32c864', borderRadius: '4px', fontSize: '0.9rem' }}>
+            📄 <strong>PDF Generated:</strong> {analytics.pdf_generated}
+          </div>
+        )}
+
+        <hr style={{ borderColor: 'rgba(255,255,255,0.1)', margin: '24px 0' }} />
+        
+        <h3>Venue Command Center</h3>
+        <div className="venue-map glass-panel" style={{ position: 'relative', marginTop: '16px', padding: 0, overflow: 'hidden' }}>
+          <img src="/src/assets/blueprint.png" alt="Venue Blueprint" style={{ width: '100%', height: 'auto', display: 'block', opacity: 0.8 }} />
+          
+          {/* Static cameras */}
+          <div className="camera-dot" style={{ left: '24%', top: '28%', background: '#0f0' }}></div>
+          <span className="camera-label" style={{ left: '22%', top: '22%', color: '#0f0' }}>CAM-1</span>
+          
+          <div className="camera-dot" style={{ left: '76%', top: '22%', background: '#0f0' }}></div>
+          <span className="camera-label" style={{ left: '74%', top: '16%', color: '#0f0' }}>CAM-2</span>
+          
+          <div className="camera-dot" style={{ left: '30%', top: '80%', background: '#0f0' }}></div>
+          <span className="camera-label" style={{ left: '28%', top: '74%', color: '#0f0' }}>CAM-3</span>
+          
+          {/* Live camera (pulsing) */}
+          <div className="camera-dot pulsing-red" style={{ left: '70%', top: '74%', background: 'red' }}></div>
+          <span className="camera-label" style={{ left: '64%', top: '68%', color: 'red' }}>CAM-4 (LIVE)</span>
+        </div>
+
       </div>
     </div>
   );
