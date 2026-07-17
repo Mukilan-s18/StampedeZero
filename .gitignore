@@ -43,3 +43,6 @@ desktop.ini
 dist/
 build/
 *.egg-info/
+*.pdf
+*.jpg
+heatmap_snapshot.jpg

@@ -185,6 +185,14 @@ class VisionTracker:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
             cv2.putText(out, "YOLO ENGINE [MOCK - install ultralytics for real]",
                         (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 120, 255), 2)
+            # Simulate entries and exits in demo/mock mode
+            if np.random.rand() > 0.8:
+                self.in_count += int(np.random.randint(1, 3))
+            if np.random.rand() > 0.85:
+                # Keep out_count slightly behind in_count so net count grows
+                if self.out_count < self.in_count - 5:
+                    self.out_count += int(np.random.randint(1, 2))
+
             return {
                 "annotated_frame": out,
                 "current_on_screen": mock_count,
@@ -226,20 +234,21 @@ class VisionTracker:
         # ── Step 3: Extract detections ────────────────────────────────────
         detections = self._extract_detections(results)
 
-        # ── Step 4: Line-crossing logic ───────────────────────────────────
+        # ── Step 4: Screen Visibility-based counting logic ────────────────
         active_ids: list[int] = []
         for track_id, cx, cy, x1, y1, x2, y2 in detections:
             active_ids.append(track_id)
             if track_id in self._track_states:
                 state = self._track_states[track_id]
-                self._check_line_crossing(track_id, state.prev_cy, cy)
                 state.prev_cy = cy
                 state.last_seen_frame = self._frame_count
             else:
-                # First appearance — record position, skip crossing check
+                # First appearance: person entered the screen
                 self._track_states[track_id] = TrackState(
                     cy=cy, frame_idx=self._frame_count
                 )
+                self.in_count += 1
+                logger.info("Person Entered screen (Track ID: %d)", track_id)
 
         # ── Step 5: Evict stale tracks ────────────────────────────────────
         self._cleanup_stale_tracks()
@@ -434,9 +443,6 @@ class VisionTracker:
     def _cleanup_stale_tracks(self) -> None:
         """
         Evict track IDs that haven't been seen for `max_stale_age` frames.
-
-        Without this, every person who ever walked past leaves their
-        dictionary entry permanently — causing a RAM leak after hours of use.
         """
         stale = [
             tid
@@ -445,7 +451,8 @@ class VisionTracker:
         ]
         for tid in stale:
             del self._track_states[tid]
-            logger.debug("Evicted stale track ID %d", tid)
+            self.out_count += 1
+            logger.info("Person Exited screen (Track ID: %d)", tid)
 
     # ─── Dunder helpers ───────────────────────────────────────────────────────
 

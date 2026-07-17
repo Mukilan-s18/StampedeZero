@@ -13,7 +13,7 @@ demo environment without touching any business logic.
 # ─── DEMO MODE ────────────────────────────────────────────────────────────────
 # Set True  → app starts without hardware (webcam/GPU/weights) — uses mocks
 # Set False → full real inference (requires webcam + CSRNet weights + Twilio .env)
-DEMO_MODE: bool = True
+DEMO_MODE: bool = False
 
 # ─── Engineer 1 — Vision Tracker ──────────────────────────────────────────────
 MODEL_PATH: str = "yolov8n.pt"        # YOLOv8 nano weights (auto-downloads on first run)
