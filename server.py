@@ -58,7 +58,19 @@ def ai_processing_loop():
     logger.info("Starting background AI processing loop...")
     
     # Video source
-    video_source = 0 if cfg.DEMO_MODE == False else "data/stress_test.mp4"
+    video_source = cfg.VIDEO_SOURCE
+    if cfg.DEMO_MODE:
+        # Use CNN_VIDEO_PATH if it exists, otherwise fall back to webcam 0
+        if os.path.exists(cfg.CNN_VIDEO_PATH):
+            video_source = cfg.CNN_VIDEO_PATH
+        elif os.path.exists("data/stress_test.mp4"):
+            video_source = "data/stress_test.mp4"
+        else:
+            logger.warning(
+                f"Demo video files not found. Falling back to webcam source {cfg.VIDEO_SOURCE}."
+            )
+            video_source = cfg.VIDEO_SOURCE
+
     cap = cv2.VideoCapture(video_source)
     if not cap.isOpened():
         logger.error(f"Failed to open video source: {video_source}")
