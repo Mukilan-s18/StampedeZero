@@ -68,7 +68,11 @@ def ai_processing_loop():
     while STATE.running:
         ret, frame = cap.read()
         if not ret:
-            if cfg.DEMO_MODE or isinstance(video_source, str):
+            if not cap.isOpened() and cfg.DEMO_MODE:
+                import numpy as np
+                frame = np.zeros((480, 640, 3), dtype=np.uint8)
+                ret = True
+            elif cfg.DEMO_MODE or isinstance(video_source, str):
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 continue
             else:
