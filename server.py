@@ -103,10 +103,16 @@ def ai_processing_loop():
             # Sync predictor settings
             predictor.threshold = STATE.capacity
             
+        total_in = 0
+        total_out = 0
+        current_on_screen = 0
         if mode == "LIVE (YOLOv8)":
             result = yolo_engine.process_frame(frame, frame_id=frame_count)
             render_img = result["annotated_frame"]
             current_count = result["in_count"] - result["out_count"]
+            total_in = result["in_count"]
+            total_out = result["out_count"]
+            current_on_screen = result["current_on_screen"]
         else:
             # CSRNet
             # Run every N frames for CSRNet if we want, or every frame
@@ -114,11 +120,15 @@ def ai_processing_loop():
                 result = cnn_engine.process_frame(frame)
                 render_img = result["heatmap_frame"]
                 current_count = result["estimated_count"]
+                current_on_screen = result["estimated_count"]
                 
         # Risk Predictor
         if frame_count % 5 == 0 or mode == "STRESS TEST (CSRNet)":
             analytics = predictor.update_and_predict(current_count)
             with STATE.lock:
+                analytics["total_in"] = total_in
+                analytics["total_out"] = total_out
+                analytics["current_on_screen"] = current_on_screen
                 if STATE.emergency_override:
                     analytics["status"] = "CRITICAL_CAPACITY"
                     analytics["sms_sent"] = True

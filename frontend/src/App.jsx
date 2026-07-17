@@ -174,9 +174,40 @@ function App() {
       <div className="analytics-panel glass-panel">
         <h3>Real-time Analytics</h3>
         
-        <div className="metric-card glass-panel" style={{ background: "rgba(0,0,0,0.2)" }}>
+        <div className="metric-card glass-panel" style={{ background: "rgba(0,0,0,0.2)", marginBottom: '16px' }}>
           <span className="title">Current Density</span>
           <span className="value">{analytics.current_count} <span style={{fontSize:'1rem', color:'var(--text-secondary)'}}>/ {config.capacity}</span></span>
+          
+          {/* Capacity Progress Bar */}
+          <div style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '4px', height: '8px', marginTop: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{
+              width: `${Math.min(100, (analytics.current_count / (config.capacity || 1)) * 100)}%`,
+              backgroundColor: (analytics.current_count / (config.capacity || 1)) >= 0.85 ? '#e74c3c' : ((analytics.current_count / (config.capacity || 1)) >= 0.7 ? '#ff8c42' : '#2ecc71'),
+              height: '100%',
+              transition: 'width 0.3s ease-in-out'
+            }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            <span>0%</span>
+            <span>{Math.round(Math.min(100, (analytics.current_count / (config.capacity || 1)) * 100))}% Allowed</span>
+            <span>100%</span>
+          </div>
+        </div>
+
+        <div className="metric-card glass-panel" style={{ background: "rgba(255,165,0,0.03)", borderLeft: '3px solid #ff8c42', marginBottom: '16px' }}>
+          <span className="title" style={{ color: '#ff8c42' }}>Visible on Camera</span>
+          <span className="value">{analytics.current_on_screen || 0} <span style={{fontSize:'1rem', color:'var(--text-secondary)'}}>ppl</span></span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+          <div className="metric-card glass-panel" style={{ flex: 1, background: "rgba(46, 204, 113, 0.05)", borderLeft: '3px solid #2ecc71', margin: 0, padding: '12px' }}>
+            <span className="title" style={{ fontSize: '0.8rem', color: '#2ecc71' }}>Total Entered</span>
+            <span className="value" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{analytics.total_in || 0}</span>
+          </div>
+          <div className="metric-card glass-panel" style={{ flex: 1, background: "rgba(231, 76, 60, 0.05)", borderLeft: '3px solid #e74c3c', margin: 0, padding: '12px' }}>
+            <span className="title" style={{ fontSize: '0.8rem', color: '#e74c3c' }}>Total Exited</span>
+            <span className="value" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{analytics.total_out || 0}</span>
+          </div>
         </div>
 
         <div className="metric-card glass-panel" style={{ background: "rgba(0,0,0,0.2)" }}>
