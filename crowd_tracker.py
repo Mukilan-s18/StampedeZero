@@ -63,12 +63,14 @@ logger = logging.getLogger("VisionTracker")
 class TrackState:
     """Tracks the per-person state needed for line-crossing detection."""
 
-    __slots__ = ("prev_cy", "last_seen_frame", "crossed_direction")
+    __slots__ = ("prev_cy", "last_seen_frame", "crossed_direction", "first_seen_time", "counted_as_entered")
 
     def __init__(self, cy: int, frame_idx: int) -> None:
         self.prev_cy: int = cy
         self.last_seen_frame: int = frame_idx
         self.crossed_direction: Optional[str] = None  # "in" | "out" | None
+        self.first_seen_time: float = time.time()
+        self.counted_as_entered: bool = False
 
 
 # ─── Main Class ───────────────────────────────────────────────────────────────
@@ -247,8 +249,15 @@ class VisionTracker:
                 self._track_states[track_id] = TrackState(
                     cy=cy, frame_idx=self._frame_count
                 )
-                self.in_count += 1
-                logger.info("Person Entered screen (Track ID: %d)", track_id)
+                logger.info("Person detected on screen (Track ID: %d) — verification pending (3s)", track_id)
+
+            # Verification: only count as Entered if person remains on screen for at least 3.0 seconds
+            state = self._track_states[track_id]
+            if not state.counted_as_entered:
+                if (time.time() - state.first_seen_time) >= 3.0:
+                    state.counted_as_entered = True
+                    self.in_count += 1
+                    logger.info("Person Entered screen (Track ID: %d, verified 3s presence)", track_id)
 
         # ── Step 5: Evict stale tracks ────────────────────────────────────
         self._cleanup_stale_tracks()
@@ -433,10 +442,14 @@ class VisionTracker:
             if (self._frame_count - state.last_seen_frame) > self._max_stale_age
         ]
         for tid in stale:
+            state = self._track_states[tid]
+            # Increment exited count only if they were verified as entered
+            if state.counted_as_entered:
+                self.out_count += 1
+                logger.info("Person Exited screen (Track ID: %d)", tid)
+            else:
+                logger.info("Evicted noise detection track ID %d (below 3s presence)", tid)
             del self._track_states[tid]
-            # Increment exited count only
-            self.out_count += 1
-            logger.info("Person Exited screen (Track ID: %d)", tid)
 
     # ─── Dunder helpers ───────────────────────────────────────────────────────
 
