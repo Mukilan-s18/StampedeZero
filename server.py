@@ -36,6 +36,9 @@ class GlobalState:
         self.frame_skip: int = cfg.SKIP_FRAMES
         self.capacity: int = cfg.VENUE_CAPACITY
         self.emergency_override: bool = False
+        self.pdf_generated_path: Optional[str] = None
+        self.pdf_session_active: bool = False
+        self.last_critical_time: float = 0.0
 
 STATE = GlobalState()
 
@@ -50,6 +53,16 @@ predictor = ThreatPredictor(
     velocity_floor=cfg.VELOCITY_FLOOR,
 )
 
+def play_buzzer():
+    import platform
+    if platform.system() == "Windows":
+        try:
+            import winsound
+            winsound.Beep(2200, 150)
+            winsound.Beep(1800, 150)
+        except Exception:
+            pass
+
 # ─── Background AI Loop ─────────────────────────────────────────────────────
 def ai_processing_loop():
     import logging
@@ -58,12 +71,28 @@ def ai_processing_loop():
     logger.info("Starting background AI processing loop...")
     
     # Video source
-    video_source = 0 if cfg.DEMO_MODE == False else "data/stress_test.mp4"
+    video_source = cfg.VIDEO_SOURCE
+    if cfg.DEMO_MODE:
+        # Use CNN_VIDEO_PATH if it exists, otherwise fall back to webcam 0
+        if os.path.exists(cfg.CNN_VIDEO_PATH):
+            video_source = cfg.CNN_VIDEO_PATH
+        elif os.path.exists("data/stress_test.mp4"):
+            video_source = "data/stress_test.mp4"
+        else:
+            logger.warning(
+                f"Demo video files not found. Falling back to webcam source {cfg.VIDEO_SOURCE}."
+            )
+            video_source = cfg.VIDEO_SOURCE
+
     cap = cv2.VideoCapture(video_source)
     if not cap.isOpened():
         logger.error(f"Failed to open video source: {video_source}")
         
     frame_count = 0
+    current_count = 0
+    total_in = 0
+    total_out = 0
+    current_on_screen = 0
     
     while STATE.running:
         ret, frame = cap.read()
@@ -79,7 +108,6 @@ def ai_processing_loop():
                 break
                 
         frame_count += 1
-        current_count = 0
         render_img = frame.copy()
         
         # Apply Logic based on mode
@@ -90,11 +118,13 @@ def ai_processing_loop():
             yolo_engine.skip_frames = STATE.frame_skip
             # Sync predictor settings
             predictor.threshold = STATE.capacity
-            
         if mode == "LIVE (YOLOv8)":
             result = yolo_engine.process_frame(frame, frame_id=frame_count)
             render_img = result["annotated_frame"]
-            current_count = result["in_count"] - result["out_count"]
+            current_count = result["current_on_screen"]
+            total_in = result["in_count"]
+            total_out = result["out_count"]
+            current_on_screen = result["current_on_screen"]
         else:
             # CSRNet
             # Run every N frames for CSRNet if we want, or every frame
@@ -102,30 +132,50 @@ def ai_processing_loop():
                 result = cnn_engine.process_frame(frame)
                 render_img = result["heatmap_frame"]
                 current_count = result["estimated_count"]
+                current_on_screen = result["estimated_count"]
                 
         # Risk Predictor
         if frame_count % 5 == 0 or mode == "STRESS TEST (CSRNet)":
             analytics = predictor.update_and_predict(current_count)
             with STATE.lock:
+                analytics["total_in"] = total_in
+                analytics["total_out"] = total_out
+                analytics["current_on_screen"] = current_on_screen
                 if STATE.emergency_override:
                     analytics["status"] = "CRITICAL_CAPACITY"
                     analytics["sms_sent"] = True
                     analytics["risk_score"] = 1.0
                     analytics["message"] = "🚨 EMERGENCY OVERRIDE TRIGGERED"
                 
-                if analytics.get("sms_sent"):
-                    from alert_engine.report_generator import generate_incident_report
-                    import datetime
-                    heatmap_snapshot_path = "heatmap_snapshot.jpg"
-                    cv2.imwrite(heatmap_snapshot_path, render_img)
-                    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    rate = analytics.get("inflow_rate", 0.0)
-                    try:
-                        pdf_path = generate_incident_report(ts, rate, current_count, heatmap_snapshot_path)
-                        analytics["pdf_generated"] = pdf_path
-                    except Exception as e:
-                        logger.error(f"Failed to generate PDF: {e}")
-
+                status = analytics.get("status")
+                if status == "CRITICAL_CAPACITY":
+                    STATE.last_critical_time = time.time()
+                    # Play buzzer sound
+                    import threading
+                    threading.Thread(target=play_buzzer, daemon=True).start()
+                    
+                    # Generate PDF once per session
+                    if not STATE.pdf_session_active:
+                        from alert_engine.report_generator import generate_incident_report
+                        import datetime
+                        heatmap_snapshot_path = "heatmap_snapshot.jpg"
+                        cv2.imwrite(heatmap_snapshot_path, render_img)
+                        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        rate = analytics.get("inflow_rate", 0.0)
+                        try:
+                            pdf_path = generate_incident_report(ts, rate, current_count, heatmap_snapshot_path)
+                            STATE.pdf_generated_path = pdf_path
+                            STATE.pdf_session_active = True
+                            logger.info(f"Incident report generated successfully: {pdf_path}")
+                        except Exception as e:
+                            logger.error(f"Failed to generate PDF: {e}")
+                else:
+                    # Debounce: Only clear the PDF session after 15 seconds of clean/safe status
+                    if STATE.pdf_session_active and (time.time() - STATE.last_critical_time > 15.0):
+                        STATE.pdf_session_active = False
+                        STATE.pdf_generated_path = None
+                
+                analytics["pdf_generated"] = STATE.pdf_generated_path
                 STATE.latest_analytics = analytics
                 
         # Encode frame to JPEG

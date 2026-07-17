@@ -13,7 +13,7 @@ demo environment without touching any business logic.
 # ─── DEMO MODE ────────────────────────────────────────────────────────────────
 # Set True  → app starts without hardware (webcam/GPU/weights) — uses mocks
 # Set False → full real inference (requires webcam + CSRNet weights + Twilio .env)
-DEMO_MODE: bool = True
+DEMO_MODE: bool = False
 
 # ─── Engineer 1 — Vision Tracker ──────────────────────────────────────────────
 MODEL_PATH: str = "yolov8n.pt"        # YOLOv8 nano weights (auto-downloads on first run)
@@ -32,7 +32,7 @@ LINE_THICKNESS: int = 2
 FRAME_W: int = 640                    # Resize width before YOLO inference
 FRAME_H: int = 480                    # Resize height before YOLO inference
 SKIP_FRAMES: int = 2                  # Run YOLO every Nth frame (~50% CPU saving)
-MAX_STALE_AGE: int = 30               # Frames before unseen track ID is evicted
+MAX_STALE_AGE: int = 3                # Frames before unseen track ID is evicted
 
 BOX_COLOR_IN: tuple = (0, 255, 0)      # Green  → crossed inward
 BOX_COLOR_OUT: tuple = (0, 0, 255)     # Red    → crossed outward

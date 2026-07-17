@@ -63,12 +63,14 @@ logger = logging.getLogger("VisionTracker")
 class TrackState:
     """Tracks the per-person state needed for line-crossing detection."""
 
-    __slots__ = ("prev_cy", "last_seen_frame", "crossed_direction")
+    __slots__ = ("prev_cy", "last_seen_frame", "crossed_direction", "first_seen_time", "counted_as_entered")
 
     def __init__(self, cy: int, frame_idx: int) -> None:
         self.prev_cy: int = cy
         self.last_seen_frame: int = frame_idx
         self.crossed_direction: Optional[str] = None  # "in" | "out" | None
+        self.first_seen_time: float = time.time()
+        self.counted_as_entered: bool = False
 
 
 # ─── Main Class ───────────────────────────────────────────────────────────────
@@ -156,7 +158,7 @@ class VisionTracker:
 
     # ─── Public API ───────────────────────────────────────────────────────────
 
-    def process_frame(self, frame: np.ndarray) -> dict:
+    def process_frame(self, frame: np.ndarray, frame_id: Optional[int] = None) -> dict:
         """
         Full pipeline: resize → track → extract → crossing logic → annotate.
 
@@ -185,6 +187,14 @@ class VisionTracker:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
             cv2.putText(out, "YOLO ENGINE [MOCK - install ultralytics for real]",
                         (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 120, 255), 2)
+            # Simulate entries and exits in demo/mock mode
+            if np.random.rand() > 0.8:
+                self.in_count += int(np.random.randint(1, 3))
+            if np.random.rand() > 0.85:
+                # Keep out_count slightly behind in_count so net count grows
+                if self.out_count < self.in_count - 5:
+                    self.out_count += int(np.random.randint(1, 2))
+
             return {
                 "annotated_frame": out,
                 "current_on_screen": mock_count,
@@ -226,20 +236,28 @@ class VisionTracker:
         # ── Step 3: Extract detections ────────────────────────────────────
         detections = self._extract_detections(results)
 
-        # ── Step 4: Line-crossing logic ───────────────────────────────────
+        # ── Step 4: Screen Visibility-based counting logic ────────────────
         active_ids: list[int] = []
         for track_id, cx, cy, x1, y1, x2, y2 in detections:
             active_ids.append(track_id)
             if track_id in self._track_states:
                 state = self._track_states[track_id]
-                self._check_line_crossing(track_id, state.prev_cy, cy)
                 state.prev_cy = cy
                 state.last_seen_frame = self._frame_count
             else:
-                # First appearance — record position, skip crossing check
+                # First appearance: person entered the screen
                 self._track_states[track_id] = TrackState(
                     cy=cy, frame_idx=self._frame_count
                 )
+                logger.info("Person detected on screen (Track ID: %d) — verification pending (3s)", track_id)
+
+            # Verification: only count as Entered if person remains on screen for at least 3.0 seconds
+            state = self._track_states[track_id]
+            if not state.counted_as_entered:
+                if (time.time() - state.first_seen_time) >= 3.0:
+                    state.counted_as_entered = True
+                    self.in_count += 1
+                    logger.info("Person Entered screen (Track ID: %d, verified 3s presence)", track_id)
 
         # ── Step 5: Evict stale tracks ────────────────────────────────────
         self._cleanup_stale_tracks()
@@ -368,15 +386,8 @@ class VisionTracker:
         h, w = frame.shape[:2]
         line_y = self._line_y
 
-        # ── Virtual line ──────────────────────────────────────────────────
-        cv2.line(frame, (0, line_y), (w, line_y), cfg.LINE_COLOR, cfg.LINE_THICKNESS)
+        # Virtual counting line removed per user request
 
-        # Line label
-        cv2.putText(
-            frame, "COUNTING LINE",
-            (10, line_y - 8),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, cfg.LINE_COLOR, 1,
-        )
 
         # ── Per-person overlays ───────────────────────────────────────────
         for track_id, cx, cy, x1, y1, x2, y2 in detections:
@@ -394,18 +405,8 @@ class VisionTracker:
             # Bounding box
             cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
 
-            # ID label (above box)
-            label = f"ID:{track_id}"
-            (lw, lh), _ = cv2.getTextSize(
-                label, cv2.FONT_HERSHEY_SIMPLEX, cfg.FONT_SCALE, cfg.FONT_THICKNESS
-            )
-            cv2.rectangle(frame, (x1, y1 - lh - 8), (x1 + lw + 4, y1), box_color, -1)
-            cv2.putText(
-                frame, label,
-                (x1 + 2, y1 - 4),
-                cv2.FONT_HERSHEY_SIMPLEX, cfg.FONT_SCALE,
-                (0, 0, 0), cfg.FONT_THICKNESS,
-            )
+            # ID label removed per user request
+
 
             # Centroid dot
             cv2.circle(frame, (cx, cy), cfg.CENTROID_RADIUS, cfg.CENTROID_COLOR, -1)
@@ -434,9 +435,6 @@ class VisionTracker:
     def _cleanup_stale_tracks(self) -> None:
         """
         Evict track IDs that haven't been seen for `max_stale_age` frames.
-
-        Without this, every person who ever walked past leaves their
-        dictionary entry permanently — causing a RAM leak after hours of use.
         """
         stale = [
             tid
@@ -444,8 +442,14 @@ class VisionTracker:
             if (self._frame_count - state.last_seen_frame) > self._max_stale_age
         ]
         for tid in stale:
+            state = self._track_states[tid]
+            # Increment exited count only if they were verified as entered
+            if state.counted_as_entered:
+                self.out_count += 1
+                logger.info("Person Exited screen (Track ID: %d)", tid)
+            else:
+                logger.info("Evicted noise detection track ID %d (below 3s presence)", tid)
             del self._track_states[tid]
-            logger.debug("Evicted stale track ID %d", tid)
 
     # ─── Dunder helpers ───────────────────────────────────────────────────────
 
