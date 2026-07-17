@@ -89,6 +89,10 @@ def ai_processing_loop():
         logger.error(f"Failed to open video source: {video_source}")
         
     frame_count = 0
+    current_count = 0
+    total_in = 0
+    total_out = 0
+    current_on_screen = 0
     
     while STATE.running:
         ret, frame = cap.read()
@@ -104,7 +108,6 @@ def ai_processing_loop():
                 break
                 
         frame_count += 1
-        current_count = 0
         render_img = frame.copy()
         
         # Apply Logic based on mode
@@ -115,10 +118,6 @@ def ai_processing_loop():
             yolo_engine.skip_frames = STATE.frame_skip
             # Sync predictor settings
             predictor.threshold = STATE.capacity
-            
-        total_in = 0
-        total_out = 0
-        current_on_screen = 0
         if mode == "LIVE (YOLOv8)":
             result = yolo_engine.process_frame(frame, frame_id=frame_count)
             render_img = result["annotated_frame"]

@@ -377,15 +377,8 @@ class VisionTracker:
         h, w = frame.shape[:2]
         line_y = self._line_y
 
-        # ── Virtual line ──────────────────────────────────────────────────
-        cv2.line(frame, (0, line_y), (w, line_y), cfg.LINE_COLOR, cfg.LINE_THICKNESS)
+        # Virtual counting line removed per user request
 
-        # Line label
-        cv2.putText(
-            frame, "COUNTING LINE",
-            (10, line_y - 8),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, cfg.LINE_COLOR, 1,
-        )
 
         # ── Per-person overlays ───────────────────────────────────────────
         for track_id, cx, cy, x1, y1, x2, y2 in detections:
