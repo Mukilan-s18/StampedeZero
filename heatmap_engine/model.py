@@ -10,10 +10,7 @@ class CSRNet(nn.Module):
         self.backend = make_layers(self.backend_feat, in_channels=512, dilation=True)
         self.output_layer = nn.Conv2d(64, 1, kernel_size=1)
         if not load_weights:
-            try:
-                mod = models.vgg16(weights=models.VGG16_Weights.DEFAULT)
-            except AttributeError:
-                mod = models.vgg16(pretrained=True)
+            mod = models.vgg16(weights=models.VGG16_Weights.DEFAULT)
             self._initialize_weights()
             items = list(self.frontend.state_dict().items())
             _items = list(mod.features[0:23].state_dict().items())

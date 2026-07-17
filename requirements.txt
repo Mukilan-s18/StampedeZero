@@ -1,11 +1,23 @@
-# Vision Tracker (Engineer 1 - mukil)
+# StampedeZero — Unified Requirements
+# =====================================
+# Install everything: pip install -r requirements.txt
+# For a clean environment: python -m venv venv && source venv/bin/activate
+
+# ── Engineer 1 — Vision Tracker (YOLOv8 + ByteTrack) ─────────────────────────
 ultralytics>=8.2.0
 opencv-python>=4.9.0
 numpy>=1.26.0
 
-# Streamlit Dashboard (Engineer 4 - fadil)
+# ── Engineer 2 — CSRNet Density Estimator ────────────────────────────────────
+torch>=2.1.0
+torchvision>=0.16.0
+
+# ── Engineer 3 — Alert Engine (Twilio + Prediction) ──────────────────────────
+twilio>=9.0.0
+python-dotenv>=1.0.0
+
+# ── Engineer 4 — Streamlit Dashboard ─────────────────────────────────────────
 streamlit>=1.35.0
 plotly>=5.22.0
 pandas>=2.2.0
 Pillow>=10.3.0
-python-dotenv>=1.0.0
