@@ -130,32 +130,36 @@ class DensityEstimator:
     # ─── Real Inference ───────────────────────────────────────────────────────
 
     def _real_frame(self, frame: np.ndarray) -> dict:
-        original_h, original_w = frame.shape[:2]
+        try:
+            original_h, original_w = frame.shape[:2]
 
-        # PERF-04: Downscale before feeding CNN — faster on CPU
-        small = cv2.resize(
-            cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
-            self._infer_size,
-        )
-        img_tensor = self.transform(small).unsqueeze(0).to(self.device)
+            # PERF-04: Downscale before feeding CNN — faster on CPU
+            small = cv2.resize(
+                cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
+                self._infer_size,
+            )
+            img_tensor = self.transform(small).unsqueeze(0).to(self.device)
 
-        with torch.no_grad():
-            output = self.model(img_tensor)
+            with torch.no_grad():
+                output = self.model(img_tensor)
 
-        count = int(torch.sum(output).item())
+            count = int(torch.sum(output).item())
 
-        # Upscale density map back to original frame size
-        density_map = output.squeeze().cpu().numpy()
-        density_map_full = cv2.resize(density_map, (original_w, original_h))
+            # Upscale density map back to original frame size
+            density_map = output.squeeze().cpu().numpy()
+            density_map_full = cv2.resize(density_map, (original_w, original_h))
 
-        heatmap_frame = self._apply_heatmap(frame, density_map_full)
+            heatmap_frame = self._apply_heatmap(frame, density_map_full)
 
-        return {
-            "heatmap_frame":   heatmap_frame,
-            "estimated_count": count,
-            "density_map":     density_map_full,
-            "peak_density":    float(density_map_full.max()),
-        }
+            return {
+                "heatmap_frame":   heatmap_frame,
+                "estimated_count": count,
+                "density_map":     density_map_full,
+                "peak_density":    float(density_map_full.max()),
+            }
+        except Exception as e:
+            logger.error("CSRNet real inference crashed: %s. Falling back to mock frame.", e)
+            return self._mock_frame(frame)
 
     # ─── Mock Fallback ────────────────────────────────────────────────────────
 

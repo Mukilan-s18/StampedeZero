@@ -57,9 +57,17 @@ def compute_trend(
     x = np.array([t - t0 for t in timestamps], dtype=np.float64)
     y = np.array(counts, dtype=np.float64)
 
-    # Degree 1 = linear fit → y = mx + c
-    m, c = np.polyfit(x, y, 1)
-    return float(m), float(c)
+    # Guard: if all timestamps are identical (high-speed testing), regression fails
+    if len(x) < 2 or np.all(x == x[0]):
+        return 0.0, float(y[-1])
+
+    try:
+        # Degree 1 = linear fit → y = mx + c
+        m, c = np.polyfit(x, y, 1)
+        return float(m), float(c)
+    except Exception:
+        return 0.0, float(y[-1])
+
 
 
 def predict_eta(
