@@ -1,5 +1,45 @@
-venv/
-__pycache__/
-*.pyc
-.vscode/
+# === Secrets ===
 .env
+
+# === Virtual Environments ===
+venv/
+.venv/
+env/
+
+# === Python Cache ===
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+
+# === ML Model Weights (NEVER push — share via Google Drive) ===
+*.pt
+*.pth
+*.onnx
+*.pkl
+*.h5
+
+# === Video Files (too large for GitHub) ===
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# === OS Junk ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === IDE ===
+.vscode/
+.idea/
+
+# === Streamlit secrets (not config.toml — that's fine to push) ===
+.streamlit/secrets.toml
+
+# === Logs & Dist ===
+*.log
+dist/
+build/
+*.egg-info/
