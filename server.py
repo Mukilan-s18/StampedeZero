@@ -103,6 +103,9 @@ def ai_processing_loop():
                 ret = True
             elif cfg.DEMO_MODE or isinstance(video_source, str):
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                yolo_engine.in_count = 0
+                yolo_engine.out_count = 0
+                yolo_engine._track_states.clear()
                 continue
             else:
                 break
@@ -263,6 +266,8 @@ def update_config(cfg_update: ConfigUpdate):
             STATE.mode = cfg_update.mode
             predictor.reset() # Reset stats on mode switch
             yolo_engine._track_states.clear()
+            yolo_engine.in_count = 0
+            yolo_engine.out_count = 0
         if cfg_update.line_y_fraction is not None:
             STATE.line_y_fraction = cfg_update.line_y_fraction
         if cfg_update.frame_skip is not None:
