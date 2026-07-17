@@ -38,6 +38,7 @@ class GlobalState:
         self.emergency_override: bool = False
         self.pdf_generated_path: Optional[str] = None
         self.pdf_session_active: bool = False
+        self.last_critical_time: float = 0.0
 
 STATE = GlobalState()
 
@@ -149,6 +150,7 @@ def ai_processing_loop():
                 
                 status = analytics.get("status")
                 if status == "CRITICAL_CAPACITY":
+                    STATE.last_critical_time = time.time()
                     # Play buzzer sound
                     import threading
                     threading.Thread(target=play_buzzer, daemon=True).start()
@@ -169,9 +171,10 @@ def ai_processing_loop():
                         except Exception as e:
                             logger.error(f"Failed to generate PDF: {e}")
                 else:
-                    # Reset PDF session when SAFE
-                    STATE.pdf_session_active = False
-                    STATE.pdf_generated_path = None
+                    # Debounce: Only clear the PDF session after 15 seconds of clean/safe status
+                    if STATE.pdf_session_active and (time.time() - STATE.last_critical_time > 15.0):
+                        STATE.pdf_session_active = False
+                        STATE.pdf_generated_path = None
                 
                 analytics["pdf_generated"] = STATE.pdf_generated_path
                 STATE.latest_analytics = analytics
