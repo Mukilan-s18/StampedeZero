@@ -22,12 +22,27 @@ import time
 
 import cv2
 import numpy as np
-import torch
-from torchvision import transforms
+try:
+    import torch
+    from torchvision import transforms
+    _TORCH_AVAILABLE = True
+except ImportError:
+    torch = None
+    transforms = None
+    _TORCH_AVAILABLE = False
+    logging.getLogger("DensityEstimator").warning(
+        "torch/torchvision not installed — DensityEstimator running in DEMO/MOCK mode."
+    )
 
 # Allow importing model.py regardless of CWD
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from model import CSRNet
+try:
+    if _TORCH_AVAILABLE:
+        from model import CSRNet
+    else:
+        CSRNet = None
+except ImportError:
+    CSRNet = None
 
 logger = logging.getLogger("DensityEstimator")
 
@@ -54,8 +69,15 @@ class DensityEstimator:
         # Resolve alias
         resolved_path = weights_path if weights_path is not None else weight_path
         self._infer_size = infer_size
-        self._mock_mode = False
+        
+        if not _TORCH_AVAILABLE:
+            logger.warning("DEMO MODE: PyTorch not available — forcing mock mode.")
+            self._mock_mode = True
+            self.device = None
+            self.transform = None
+            return
 
+        self._mock_mode = False
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.transform = transforms.Compose([
             transforms.ToTensor(),
